@@ -2,42 +2,42 @@ import pygame
 import kociemba
 from pygame import Vector2
 
-# Initialize Pygame
 pygame.init()
 
 # Constants
 WINDOW_WIDTH = 1200
-WINDOW_HEIGHT = 700
+WINDOW_HEIGHT = 800
 CELL_SIZE = 40
 COLOR_SIZE = 30
 SPACING = 10
 FPS = 60
-TEXT_LINE_HEIGHT = 25
-MAX_VISIBLE_LINES = 30  # Increased to show more lines on the right side
-SOLUTION_X_START = 800  # Position for solution text on the right
+TEXT_LINE_HEIGHT = 24
+MAX_VISIBLE_LINES = 30
+SOLUTION_X_START = 800
 
-# Colors (RGB)
+# Colors (RGB) — neon style colors
 COLORS = {
-    'W': (255, 255, 255),  # White
-    'Y': (255, 255, 0),    # Yellow
-    'R': (255, 0, 0),      # Red
-    'O': (255, 165, 0),    # Orange
-    'G': (0, 255, 0),      # Green
-    'B': (0, 0, 255),      # Blue
-    'X': (200, 200, 200)   # Uncolored (gray for non-center cells initially)
+    'W': (255, 255, 255),    # White (bright)
+    'Y': (255, 255, 0),      # Yellow
+    'R': (255, 50, 50),      # Neon Red
+    'O': (255, 140, 0),      # Neon Orange
+    'G': (0, 255, 128),      # Neon Green
+    'B': (0, 128, 255),      # Neon Blue
+    'X': (80, 80, 80)        # Dark gray for uncolored cells
 }
 
-# T-shaped layout: positions for each face (center of each 3x3 grid)
+BG_COLOR = (15, 15, 30)
+
+# Face positions — shifted left face more right by 7 px
 FACE_POSITIONS = {
-    'U': Vector2(4 * CELL_SIZE + 2 * SPACING, 2 * SPACING + COLOR_SIZE),
-    'L': Vector2(SPACING, 4 * CELL_SIZE + 2 * SPACING),
-    'F': Vector2(4 * CELL_SIZE + 2 * SPACING, 4 * CELL_SIZE + 2 * SPACING),
-    'R': Vector2(7 * CELL_SIZE + 3 * SPACING, 4 * CELL_SIZE + 2 * SPACING),
-    'B': Vector2(10 * CELL_SIZE + 4 * SPACING, 4 * CELL_SIZE + 2 * SPACING),
-    'D': Vector2(4 * CELL_SIZE + 2 * SPACING, 7 * CELL_SIZE + 3 * SPACING)
+    'U': Vector2(4 * CELL_SIZE + 2 * SPACING, 2 * SPACING + COLOR_SIZE + 40),
+    'L': Vector2(SPACING + 40, 4 * CELL_SIZE + 2 * SPACING + 40), 
+    'F': Vector2(4 * CELL_SIZE + 2 * SPACING, 4 * CELL_SIZE + 2 * SPACING + 40),
+    'R': Vector2(7 * CELL_SIZE + 3 * SPACING, 4 * CELL_SIZE + 2 * SPACING + 40),
+    'B': Vector2(10 * CELL_SIZE + 4 * SPACING, 4 * CELL_SIZE + 2 * SPACING + 40),
+    'D': Vector2(4 * CELL_SIZE + 2 * SPACING, 7 * CELL_SIZE + 3 * SPACING + 40)
 }
 
-# Initialize cube state: 6 faces, each 3x3. Only centers are colored initially.
 CUBE_STATE = {
     'U': [['X' if (row, col) != (1, 1) else 'W' for col in range(3)] for row in range(3)],
     'L': [['X' if (row, col) != (1, 1) else 'O' for col in range(3)] for row in range(3)],
@@ -47,29 +47,24 @@ CUBE_STATE = {
     'D': [['X' if (row, col) != (1, 1) else 'Y' for col in range(3)] for row in range(3)]
 }
 
-# Fixed center cells (row, col) for each face
 CENTER_CELLS = {(1, 1)}
 
-# Color palette positions (just to the right of the cube map)
-PALETTE_POS = [(480 + i * (COLOR_SIZE + SPACING), SPACING, c) 
+PALETTE_POS = [(480 + i * (COLOR_SIZE + SPACING), SPACING + 40, c)
                for i, c in enumerate(['W', 'Y', 'R', 'O', 'G', 'B'])]
 
-# Button properties
-BUTTON_RECT = pygame.Rect(150, 500, 100, 40)
-BUTTON_COLOR = (100, 100, 100)
-BUTTON_HOVER_COLOR = (150, 150, 150)
+BUTTON_RECT = pygame.Rect(150, 500 + 40, 100, 40)
+BUTTON_COLOR = (70, 70, 70)
+BUTTON_HOVER_COLOR = (120, 120, 120)
 BUTTON_TEXT = "Solve"
 
-# Solution display
 SOLUTION_TEXT = []
 FONT = pygame.font.SysFont('arial', 20)
-scroll_offset = 0  # Tracks the scroll position (in lines)
+TITLE_FONT = pygame.font.SysFont('arial', 30, bold=True)
+scroll_offset = 0
 
-# State variables
 selected_color = 'W'
 running = True
 
-# Solver function
 def solve_cube(cube_string):
     try:
         if len(cube_string) != 54:
@@ -82,7 +77,6 @@ def solve_cube(cube_string):
     except Exception as e:
         return False, f"Solver error: {str(e)}"
 
-# Translator function
 def translate_moves(move_string):
     FACE_NAMES = {
         'U': 'top layer',
@@ -107,41 +101,34 @@ def translate_moves(move_string):
         if face not in FACE_NAMES or modifier not in MODIFIER_NAMES:
             instructions.append(f"Invalid move: {move}")
             continue
-        instructions.append(f"Turn {FACE_NAMES[face]} {MODIFIER_NAMES[modifier]}")
+        instructions.append(f"• Turn {FACE_NAMES[face]} {MODIFIER_NAMES[modifier]}")
     return instructions
 
-# GUI functions
 def setup():
     global screen
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
     pygame.display.set_caption("Rubik's Cube Solver")
 
 def draw_face(face, pos):
-    """Draw a 3x3 face at the given position."""
     center_colors = {'U': 'W', 'L': 'O', 'F': 'G', 'R': 'R', 'B': 'B', 'D': 'Y'}
     for row in range(3):
         for col in range(3):
             color_key = CUBE_STATE[face][row][col]
-            if (row, col) in CENTER_CELLS:
-                color = COLORS[center_colors[face]]  # Use the face's center color
-            else:
-                color = COLORS[color_key]
+            color = COLORS[center_colors[face]] if (row, col) in CENTER_CELLS else COLORS[color_key]
             rect = pygame.Rect(pos.x + col * CELL_SIZE, pos.y + row * CELL_SIZE, CELL_SIZE, CELL_SIZE)
             pygame.draw.rect(screen, color, rect)
-            pygame.draw.rect(screen, (0, 0, 0), rect, 1)
+            pygame.draw.rect(screen, (50, 50, 50), rect, 2)
 
 def draw_palette():
-    """Draw the color palette just to the right of the cube map."""
     for x, y, color_key in PALETTE_POS:
         rect = pygame.Rect(x, y, COLOR_SIZE, COLOR_SIZE)
         pygame.draw.rect(screen, COLORS[color_key], rect)
         if color_key == selected_color:
-            pygame.draw.rect(screen, (255, 255, 0), rect, 3)
+            pygame.draw.rect(screen, (0, 0, 0), rect, 3)
         else:
-            pygame.draw.rect(screen, (0, 0, 0), rect, 1)
+            pygame.draw.rect(screen, (100, 100, 100), rect, 1)
 
 def draw_button():
-    """Draw the Solve button."""
     mouse_pos = pygame.mouse.get_pos()
     color = BUTTON_HOVER_COLOR if BUTTON_RECT.collidepoint(mouse_pos) else BUTTON_COLOR
     pygame.draw.rect(screen, color, BUTTON_RECT)
@@ -150,24 +137,35 @@ def draw_button():
     screen.blit(text_surf, text_rect)
 
 def draw_solution():
-    """Draw the solution instructions on the right with scrolling."""
+    # Draw "Solution" title
+    solution_title = "Solution"
+    title_surf = TITLE_FONT.render(solution_title, True, (0, 255, 255))  # neon cyan
+    screen.blit(title_surf, (SOLUTION_X_START, SPACING + 40))
+
+    # Draw the bullet point instructions below title with some padding
     start_idx = scroll_offset
     end_idx = min(start_idx + MAX_VISIBLE_LINES, len(SOLUTION_TEXT))
-    
     for i, line in enumerate(SOLUTION_TEXT[start_idx:end_idx]):
-        text_surf = FONT.render(line, True, (0, 0, 0))
-        screen.blit(text_surf, (SOLUTION_X_START, SPACING + i * TEXT_LINE_HEIGHT))
+        y = SPACING + 40 + 40 + i * TEXT_LINE_HEIGHT  # 40 px padding after title
+        text_surf = FONT.render(line, True, (0, 255, 255))
+        screen.blit(text_surf, (SOLUTION_X_START, y))
+
+def draw_title():
+    title_text = "Configure your cube colours here"
+    text_surf = TITLE_FONT.render(title_text, True, (0, 255, 255))
+    shadow_surf = TITLE_FONT.render(title_text, True, (0, 128, 128))
+    screen.blit(shadow_surf, (SPACING + 2, SPACING + 2))
+    screen.blit(text_surf, (SPACING, SPACING))
 
 def get_cube_string():
-    """Convert cube state to Kociemba string format (URFDLB order with face letters)."""
     COLOR_TO_FACE = {
-        'W': 'U',  # White -> Up
-        'Y': 'D',  # Yellow -> Down
-        'R': 'R',  # Red -> Right
-        'O': 'L',  # Orange -> Left
-        'G': 'F',  # Green -> Front
-        'B': 'B',  # Blue -> Back
-        'X': 'U'   # Uncolored cells default to U for Kociemba
+        'W': 'U',
+        'Y': 'D',
+        'R': 'R',
+        'O': 'L',
+        'G': 'F',
+        'B': 'B',
+        'X': 'U'
     }
     order = ['U', 'R', 'F', 'D', 'L', 'B']
     result = ''
@@ -179,16 +177,12 @@ def get_cube_string():
     return result
 
 def handle_click(pos):
-    """Handle mouse clicks on palette, cube faces, or button."""
     global selected_color, SOLUTION_TEXT, scroll_offset
-    # Check palette clicks
     for x, y, color_key in PALETTE_POS:
         rect = pygame.Rect(x, y, COLOR_SIZE, COLOR_SIZE)
         if rect.collidepoint(pos):
             selected_color = color_key
             return
-
-    # Check cube face clicks
     for face, face_pos in FACE_POSITIONS.items():
         for row in range(3):
             for col in range(3):
@@ -196,8 +190,6 @@ def handle_click(pos):
                 if rect.collidepoint(pos) and (row, col) not in CENTER_CELLS:
                     CUBE_STATE[face][row][col] = selected_color
                     return
-
-    # Check button click
     if BUTTON_RECT.collidepoint(pos):
         try:
             cube_string = get_cube_string()
@@ -207,7 +199,7 @@ def handle_click(pos):
                 SOLUTION_TEXT = translated if isinstance(translated, list) else [translated]
             else:
                 SOLUTION_TEXT = [result]
-            scroll_offset = 0  # Reset scroll position when new solution is generated
+            scroll_offset = 0
         except Exception as e:
             SOLUTION_TEXT = [f"Error: {str(e)}"]
             scroll_offset = 0
@@ -223,18 +215,18 @@ def main():
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 handle_click(event.pos)
             elif event.type == pygame.MOUSEWHEEL:
-                # Handle scrolling with mouse wheel
                 if SOLUTION_TEXT:
-                    scroll_offset -= event.y  # event.y is positive for scroll up, negative for scroll down
+                    scroll_offset -= event.y
                     scroll_offset = max(0, min(scroll_offset, len(SOLUTION_TEXT) - MAX_VISIBLE_LINES))
-                    scroll_offset = max(0, scroll_offset)  # Ensure it doesn't go negative
 
-        screen.fill((200, 200, 200))
+        screen.fill(BG_COLOR)
+        draw_title()
         for face, pos in FACE_POSITIONS.items():
             draw_face(face, pos)
         draw_palette()
         draw_button()
         draw_solution()
+
         pygame.display.flip()
         clock.tick(FPS)
 
